@@ -391,10 +391,7 @@ SECTIONS = [
 
 # !!! ВСТАВЬ СВОЙ РЕАЛЬНЫЙ КЛЮЧ СЮДА !!!
 GEMINI_API_KEY = "AIzaSyA9q6c-CMizuzEbNBC-5cO35VAXEJ4N6AE"
-
-# Идентификатор модели. Если в консоли Google он называется иначе — поменяй.
-GEMINI_MODEL = "gemini-2.5-flash"
-
+GEMINI_MODEL = "gemini-2.5-flash"   # при необходимости поменяй на доступную модель
 
 # =========================
 # Вспомогательные функции
@@ -480,6 +477,23 @@ automation: {automation_str}
     return prompt.strip()
 
 
+def parse_gemini_json(text: str):
+    """
+    Пытаемся вытащить JSON-объект из текста ответа модели.
+    Игнорируем возможные префиксы/суффиксы, ```json и т.п.
+    """
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        raise RuntimeError("Модель не вернула JSON-объект.")
+
+    candidate = text[start:end + 1]
+    try:
+        return json.loads(candidate)
+    except json.JSONDecodeError as e:
+        raise RuntimeError("Модель вернула некорректный JSON.") from e
+
+
 def call_gemini_for_suggestions(project_description: str):
     """Запрашиваем у Gemini рекомендации по заполнению формы."""
     if not GEMINI_API_KEY or "ВСТАВЬ_СЮДА" in GEMINI_API_KEY:
@@ -515,10 +529,8 @@ def call_gemini_for_suggestions(project_description: str):
     except Exception:
         raise RuntimeError("Не удалось прочитать ответ модели Gemini.")
 
-    try:
-        raw_json = json.loads(text)
-    except json.JSONDecodeError:
-        raise RuntimeError("Модель вернула некорректный JSON.")
+    # аккуратно вытащим JSON даже если есть ```json и префиксы
+    raw_json = parse_gemini_json(text)
 
     # нормализуем/проверяем значения
     suggestions = {
@@ -802,4 +814,3 @@ def multi_section_calculator():
 
 if __name__ == "__main__":
     app.run(debug=True)
-
