@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Калькулятор стоимости проектирования</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: #f3f4f6;
+            color: #111827;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 24px auto;
+            padding: 0 16px 24px;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 14px;
+            padding: 20px 20px 24px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+        }
+
+        h1 {
+            margin: 0 0 6px;
+            font-size: 24px;
+        }
+
+        .subtitle {
+            margin: 0 0 18px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        form { margin: 0; }
+
+        /* AI панель */
+
+        .ai-panel {
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            padding: 12px 14px 14px;
+            margin-bottom: 16px;
+        }
+
+        .ai-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .ai-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: #6b7280;
+        }
+
+        .ai-badge {
+            font-size: 11px;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #4f46e5;
+            border: 1px solid #c7d2fe;
+        }
+
+        .ai-body {
+            display: grid;
+            grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+            gap: 10px 14px;
+        }
+
+        .ai-col-left textarea {
+            width: 100%;
+            min-height: 70px;
+            resize: vertical;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            padding: 8px 10px;
+            font-size: 13px;
+            background: #f9fafb;
+            outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .ai-col-left textarea:focus {
+            background: #ffffff;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25);
+        }
+
+        .ai-hint {
+            margin-top: 4px;
+            font-size: 11px;
+            color: #9ca3af;
+        }
+
+        .ai-col-right {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .ai-summary-item {
+            padding: 4px 6px;
+            border-radius: 8px;
+            background: #eef2ff;
+            color: #111827;
+        }
+
+        .ai-summary-label {
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+        }
+
+        .ai-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .btn-secondary {
+            border-radius: 999px;
+            border: 1px solid #d1d5db;
+            background: #ffffff;
+            font-size: 12px;
+            padding: 6px 10px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-secondary span {
+            font-size: 13px;
+        }
+
+        .ai-error {
+            margin-top: 6px;
+            border-radius: 8px;
+            padding: 6px 8px;
+            font-size: 12px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #7f1d1d;
+        }
+
+        /* Глобальные параметры проекта */
+
+        .project-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px 18px;
+            margin-bottom: 18px;
+        }
+
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        input[type="number"],
+        select {
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            padding: 8px 10px;
+            font-size: 14px;
+            background: #f9fafb;
+            outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        input[type="number"]:focus,
+        select:focus {
+            background: #ffffff;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25);
+        }
+
+        input[type="number"]::placeholder {
+            color: #9ca3af;
+        }
+
+        .field-hint {
+            font-size: 11px;
+            color: #9ca3af;
+        }
+
+        .project-caption {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 2px;
+        }
+
+        /* Разделы */
+
+        .sections-wrapper {
+            margin-top: 18px;
+        }
+
+        .sections-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 6px;
+        }
+
+        .sections-header h2 {
+            margin: 0;
+            font-size: 17px;
+        }
+
+        .sections-header span {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .section-group-title {
+            margin: 14px 0 4px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: #6b7280;
+        }
+
+        details.section-item {
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            margin-bottom: 6px;
+            overflow: hidden;
+        }
+
+        details.section-item[open] {
+            background: #eef2ff;
+            border-color: #c7d2fe;
+        }
+
+        details.section-item summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 9px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            user-select: none;
+        }
+
+        details.section-item summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .section-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .section-checkbox input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+
+        .section-title {
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .section-pill {
+            margin-left: auto;
+            font-size: 11px;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: rgba(59,130,246,.08);
+            color: #1d4ed8;
+            border: 1px solid rgba(59,130,246,.18);
+        }
+
+        .section-body {
+            padding: 10px 12px 12px;
+            border-top: 1px dashed #e5e7eb;
+            font-size: 13px;
+        }
+
+        .section-fields {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px 14px;
+        }
+
+        .section-hint {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .ai-section-hint {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #4b5563;
+            padding: 6px 8px;
+            border-radius: 8px;
+            background: rgba(226,232,240,0.8);
+        }
+
+        .ai-section-hint strong {
+            font-weight: 600;
+        }
+
+        /* Кнопки */
+
+        .actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 14px;
+        }
+
+        button[type="submit"] {
+            border: none;
+            border-radius: 999px;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            background: #2563eb;
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 8px 18px rgba(37, 99, 235, 0.35);
+            transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+        }
+
+        button[type="submit"]:hover {
+            background: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 10px 22px rgba(37, 99, 235, 0.45);
+        }
+
+        button[type="submit"]:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+        }
+
+        .btn-secondary[type="submit"] {
+            box-shadow: none;
+        }
+
+        /* Результаты */
+
+        .error-box {
+            margin-top: 14px;
+            border-radius: 10px;
+            padding: 10px 12px;
+            border: 1px solid #fecaca;
+            background: #fef2f2;
+        }
+
+        .error-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #b91c1c;
+            margin-bottom: 2px;
+        }
+
+        .error-text {
+            font-size: 13px;
+            color: #7f1d1d;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+            gap: 16px;
+            margin-top: 16px;
+        }
+
+        .result-card {
+            border-radius: 12px;
+            padding: 14px 16px 16px;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            font-size: 13px;
+        }
+
+        .result-card.main {
+            background: linear-gradient(135deg, #eff6ff, #eef2ff);
+            border-color: #dbeafe;
+        }
+
+        .result-title {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #6b7280;
+            margin-bottom: 6px;
+        }
+
+        .big-price {
+            font-size: 26px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .result-note {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .totals-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+
+        .totals-table th,
+        .totals-table td {
+            padding: 4px 4px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .totals-table th {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: #6b7280;
+        }
+
+        .totals-table td.section-name {
+            font-weight: 500;
+        }
+
+        .badge-min {
+            display: inline-block;
+            margin-top: 3px;
+            font-size: 11px;
+            padding: 2px 7px;
+            border-radius: 999px;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
+        }
+
+        .footer-note {
+            margin-top: 14px;
+            font-size: 11px;
+            color: #9ca3af;
+        }
+
+        @media (max-width: 900px) {
+            .ai-body {
+                grid-template-columns: minmax(0, 1fr);
+            }
+            .project-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .section-fields {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .results-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .card { padding: 16px; }
+            .project-grid { grid-template-columns: minmax(0, 1fr); }
+            .section-fields { grid-template-columns: minmax(0, 1fr); }
+            h1 { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h1>Калькулятор стоимости проектирования</h1>
+        <p class="subtitle">
+            Одна страница для всех разделов: задайте параметры проекта, отметьте нужные разделы и получите
+            итоговую стоимость и трудоёмкость. ИИ подскажет, что включить и какие параметры выбрать.
+        </p>
+
+        <form method="post" novalidate>
+            <!-- AI панель -->
+            <div class="ai-panel">
+                <div class="ai-panel-header">
+                    <div class="ai-title">Описание объекта для ИИ</div>
+                    <div class="ai-badge">ИИ-рекомендации</div>
+                </div>
+                <div class="ai-body">
+                    <div class="ai-col-left">
+                        <textarea
+                            name="project_description"
+                            placeholder='Например: Проектирование объекта спортивного назначения "Ледовый дворец" в городе Тихвин, площадью 2300 м².'
+                        >{{ form_data.project_description }}</textarea>
+                        <div class="ai-hint">
+                            Опишите назначение, тип, примерную площадь, ключевые особенности (спорт, медцентр, производство и т.п.).
+                        </div>
+                        <div class="ai-actions">
+                            <button class="btn-secondary" type="submit" name="action" value="suggest">
+                                <span>⚡</span> Получить рекомендации ИИ
+                            </button>
+                        </div>
+                        {% if ai_error_message %}
+                            <div class="ai-error">{{ ai_error_message }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="ai-col-right">
+                        <div class="ai-summary-item">
+                            <div class="ai-summary-label">Тип объекта (ИИ)</div>
+                            {% if ai_suggestions and ai_suggestions.object_type %}
+                                <div>{{ ai_suggestions.object_type }}</div>
+                            {% else %}
+                                <div>Ещё нет рекомендаций</div>
+                            {% endif %}
+                        </div>
+                        <div class="ai-summary-item">
+                            <div class="ai-summary-label">Стадия (ИИ)</div>
+                            {% if ai_suggestions and ai_suggestions.stage %}
+                                <div>{{ ai_suggestions.stage }}</div>
+                            {% else %}
+                                <div>Ещё нет рекомендаций</div>
+                            {% endif %}
+                        </div>
+                        <div class="ai-summary-item">
+                            <div class="ai-summary-label">Срочность (ИИ)</div>
+                            {% if ai_suggestions and ai_suggestions.urgency %}
+                                <div>{{ ai_suggestions.urgency }}</div>
+                            {% else %}
+                                <div>Ещё нет рекомендаций</div>
+                            {% endif %}
+                        </div>
+                        <div class="ai-hint">
+                            Рекомендации ИИ не подставляются автоматически — вы всегда контролируете финальный выбор.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Глобальные параметры проекта -->
+            <div class="project-grid">
+                <div class="form-row">
+                    <label for="area">Площадь объекта, м²</label>
+                    <input
+                        id="area"
+                        name="area"
+                        type="number"
+                        step="0.1"
+                        min="1"
+                        placeholder="например, 2500"
+                        value="{{ form_data.area }}"
+                        required
+                    >
+                </div>
+
+                <div class="form-row">
+                    <label for="object_type">Тип объекта</label>
+                    <select id="object_type" name="object_type" required>
+                        <option value="">— выберите —</option>
+                        {% for t in object_types %}
+                            <option value="{{ t }}"
+                                {% if form_data.object_type == t %}selected{% endif %}>
+                                {{ t }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if ai_suggestions and ai_suggestions.object_type %}
+                        <div class="field-hint">ИИ рекомендует: {{ ai_suggestions.object_type }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-row">
+                    <label for="stage">Стадия проектирования</label>
+                    <select id="stage" name="stage" required>
+                        <option value="">— выберите —</option>
+                        {% for s in stages %}
+                            <option value="{{ s }}"
+                                {% if form_data.stage == s %}selected{% endif %}>
+                                {{ s }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if ai_suggestions and ai_suggestions.stage %}
+                        <div class="field-hint">ИИ рекомендует: {{ ai_suggestions.stage }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-row">
+                    <label for="urgency">Срочность</label>
+                    <select id="urgency" name="urgency" required>
+                        <option value="">— выберите —</option>
+                        {% for u in urgencies %}
+                            <option value="{{ u }}"
+                                {% if form_data.urgency == u %}selected{% endif %}>
+                                {{ u }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if ai_suggestions and ai_suggestions.urgency %}
+                        <div class="field-hint">ИИ рекомендует: {{ ai_suggestions.urgency }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="project-caption">
+                Базовая ставка компании: {{ rate_full|rub }}/час, маржа: {{ (margin * 100)|round(0) }}%.
+                Минимальная цена проекта: {{ min_price|rub }}.
+            </div>
+
+            <!-- Разделы -->
+            <div class="sections-wrapper">
+                <div class="sections-header">
+                    <h2>Разделы проекта</h2>
+                    <span>Нажмите на название раздела, чтобы открыть настройки. ИИ подскажет рекомендованные параметры.</span>
+                </div>
+
+                {% for group, group_sections in grouped_sections.items() %}
+                    <div class="section-group-title">{{ group }}</div>
+
+                    {% for s in group_sections %}
+                        {% set r = (section_results | selectattr('key', 'equalto', s.key) | first) %}
+                        {% set ai_sec = (ai_suggestions.sections.get(s.key) if ai_suggestions and ai_suggestions.sections is defined else None) %}
+
+                        <details class="section-item" {% if r or ai_sec %}open{% endif %}>
+                            <summary>
+                                <div class="section-checkbox">
+                                    <input
+                                        type="checkbox"
+                                        name="{{ s.key }}_enabled"
+                                        {% if r or (ai_sec and ai_sec.enabled) %}checked{% endif %}
+                                    >
+                                    <span class="section-title">{{ s.title }}</span>
+                                </div>
+                                <span class="section-pill">
+                                    {% if r %}
+                                        {{ r.t_adjusted }} ч • {{ r.cost_client|rub }}
+                                    {% elif ai_sec and ai_sec.enabled %}
+                                        ИИ: включить
+                                    {% else %}
+                                        не рассчитан
+                                    {% endif %}
+                                </span>
+                            </summary>
+                            <div class="section-body">
+                                <div class="section-fields">
+                                    <div class="form-row">
+                                        <label for="{{ s.key }}_complexity">Сложность раздела</label>
+                                        <select id="{{ s.key }}_complexity" name="{{ s.key }}_complexity">
+                                            {% for c in section_complexities %}
+                                                <option value="{{ c }}"
+                                                    {% if r and r.complexity_choice == c %}
+                                                        selected
+                                                    {% elif (not r) and ai_sec and ai_sec.complexity == c %}
+                                                        selected
+                                                    {% endif %}>
+                                                    {{ c }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    {% if s.uses_detail %}
+                                        <div class="form-row">
+                                            <label for="{{ s.key }}_detail">Степень детализации</label>
+                                            <select id="{{ s.key }}_detail" name="{{ s.key }}_detail">
+                                                <option value="">— выберите —</option>
+                                                {% for d in detail_levels %}
+                                                    <option value="{{ d }}"
+                                                        {% if r and r.detail_choice == d %}
+                                                            selected
+                                                        {% elif (not r) and ai_sec and ai_sec.detail == d %}
+                                                            selected
+                                                        {% endif %}>
+                                                        {{ d }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    {% endif %}
+
+                                    {% if s.uses_automation %}
+                                        <div class="form-row">
+                                            <label for="{{ s.key }}_automation">Уровень автоматики</label>
+                                            <select id="{{ s.key }}_automation" name="{{ s.key }}_automation">
+                                                <option value="">— выберите —</option>
+                                                {% for a in automation_levels %}
+                                                    <option value="{{ a }}"
+                                                        {% if r and r.automation_choice == a %}
+                                                            selected
+                                                        {% elif (not r) and ai_sec and ai_sec.automation == a %}
+                                                            selected
+                                                        {% endif %}>
+                                                        {{ a }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                {% if ai_sec %}
+                                    <div class="ai-section-hint">
+                                        <strong>ИИ рекомендует:</strong>
+                                        {% if ai_sec.enabled %}
+                                            включить раздел;
+                                        {% else %}
+                                            раздел можно не включать;
+                                        {% endif %}
+                                        сложность — <strong>{{ ai_sec.complexity }}</strong>
+                                        {% if s.uses_detail and ai_sec.detail %}
+                                            , детализация — <strong>{{ ai_sec.detail }}</strong>
+                                        {% endif %}
+                                        {% if s.uses_automation and ai_sec.automation %}
+                                            , автоматика — <strong>{{ ai_sec.automation }}</strong>
+                                        {% endif %}.
+                                    </div>
+                                {% else %}
+                                    <div class="section-hint">
+                                        Отметьте «включить раздел» и задайте сложность/детализацию/автоматику.
+                                        Если раздел не нужен в данном проекте — просто не отмечайте его.
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </details>
+                    {% endfor %}
+                {% endfor %}
+            </div>
+
+            <div class="actions">
+                <button type="submit" name="action" value="calculate">
+                    Рассчитать стоимость проекта
+                    <span>→</span>
+                </button>
+            </div>
+        </form>
+
+        {% if error_message %}
+            <div class="error-box">
+                <div class="error-title">Ошибка ввода</div>
+                <div class="error-text">{{ error_message }}</div>
+            </div>
+        {% endif %}
+
+        {% if totals %}
+            <div class="results-grid">
+                <div class="result-card main">
+                    <div class="result-title">Итоговая цена для клиента</div>
+                    <div class="big-price">{{ totals.total_client_final|rub }}</div>
+                    <div class="result-note">
+                        Всего трудоёмкость: <strong>{{ totals.total_hours }}</strong> ч.<br>
+                        Себестоимость компании: <strong>{{ totals.total_company|rub }}</strong><br>
+                        Расчётная цена до проверки минимума: <strong>{{ totals.total_client_before_min|rub }}</strong>.
+                        {% if totals.applied_min_price %}
+                            <span class="badge-min">Применена минимальная цена проекта</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="result-card">
+                    <div class="result-title">Разбивка по разделам</div>
+                    <table class="totals-table">
+                        <thead>
+                        <tr>
+                            <th>Раздел</th>
+                            <th>Часы</th>
+                            <th>Стоимость</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for r in section_results %}
+                            <tr>
+                                <td class="section-name">{{ r.title }}</td>
+                                <td>{{ r.t_adjusted }}</td>
+                                <td>{{ r.cost_client|rub }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="footer-note">
+            Коэффициенты, базовые часы и финансовые параметры являются настраиваемыми и могут быть адаптированы
+            под политику вашей компании и специфику объектов. ИИ помогает с выбором, но финальное решение всегда за вами.
+        </div>
+    </div>
+</div>
+</body>
+</html>
