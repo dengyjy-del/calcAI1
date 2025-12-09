@@ -151,6 +151,13 @@
             font-size: 13px;
         }
 
+        .btn-secondary[disabled] {
+            opacity: 0.7;
+            cursor: not-allowed;
+            background: #e5e7eb;
+            border-color: #d1d5db;
+        }
+
         .ai-error {
             margin-top: 6px;
             border-radius: 8px;
@@ -508,7 +515,7 @@
             итоговую стоимость и трудоёмкость. ИИ подскажет, что включить и какие параметры выбрать.
         </p>
 
-        <form method="post" novalidate>
+        <form id="calc-form" method="post" novalidate>
             <!-- AI панель -->
             <div class="ai-panel">
                 <div class="ai-panel-header">
@@ -525,8 +532,15 @@
                             Опишите назначение, тип, примерную площадь, ключевые особенности (спорт, медцентр, производство и т.п.).
                         </div>
                         <div class="ai-actions">
-                            <button class="btn-secondary" type="submit" name="action" value="suggest">
-                                <span>⚡</span> Получить рекомендации ИИ
+                            <button
+                                class="btn-secondary"
+                                id="ai-suggest-btn"
+                                type="submit"
+                                name="action"
+                                value="suggest"
+                            >
+                                <span>⚡</span>
+                                <span class="ai-btn-text">Получить рекомендации ИИ</span>
                             </button>
                         </div>
                         {% if ai_error_message %}
@@ -814,5 +828,31 @@
         </div>
     </div>
 </div>
+
+<script>
+    (function () {
+        var aiBtn = document.getElementById('ai-suggest-btn');
+        var aiBtnText = aiBtn ? aiBtn.querySelector('.ai-btn-text') : null;
+        var form = document.getElementById('calc-form');
+        var aiRequestInProgress = false;
+
+        if (!aiBtn || !form || !aiBtnText) {
+            return;
+        }
+
+        aiBtn.addEventListener('click', function (event) {
+            // если уже идёт запрос к ИИ — блокируем повторные клики
+            if (aiRequestInProgress) {
+                event.preventDefault();
+                return;
+            }
+
+            aiRequestInProgress = true;
+            aiBtn.disabled = true;
+            aiBtn.dataset.originalText = aiBtnText.textContent;
+            aiBtnText.textContent = 'Запрос к ИИ…';
+        });
+    })();
+</script>
 </body>
 </html>
