@@ -390,7 +390,7 @@ SECTIONS = [
 # =========================
 
 # !!! ВСТАВЬ СВОЙ РЕАЛЬНЫЙ КЛЮЧ СЮДА !!!
-GEMINI_API_KEY = "AIzaSyBbqqoamvqSAeH4_AAl2RglqTU09y3hebQ"
+GEMINI_API_KEY = "AIzaSyA9q6c-CMizuzEbNBC-5cO35VAXEJ4N6AE"
 
 # Идентификатор модели. Если в консоли Google он называется иначе — поменяй.
 GEMINI_MODEL = "gemini-2.5-flash"
@@ -802,3 +802,4 @@ def multi_section_calculator():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
