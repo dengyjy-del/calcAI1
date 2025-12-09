@@ -483,6 +483,23 @@
             color: #9ca3af;
         }
 
+        .version-pill {
+            margin-top: 6px;
+            font-size: 11px;
+            color: #6b7280;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .version-pill span {
+            padding: 2px 7px;
+            border-radius: 999px;
+            border: 1px solid #e5e7eb;
+            background: #f9fafb;
+            font-weight: 500;
+        }
+
         @media (max-width: 900px) {
             .ai-body {
                 grid-template-columns: minmax(0, 1fr);
@@ -825,6 +842,10 @@
         <div class="footer-note">
             Коэффициенты, базовые часы и финансовые параметры являются настраиваемыми и могут быть адаптированы
             под политику вашей компании и специфику объектов. ИИ помогает с выбором, но финальное решение всегда за вами.
+        </div>
+        <div class="version-pill">
+            Версия калькулятора:
+            <span>{{ version }}</span>
         </div>
     </div>
 </div>
