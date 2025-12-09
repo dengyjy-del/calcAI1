@@ -2,6 +2,7 @@
 import json
 import math
 import requests
+from requests.exceptions import Timeout, RequestException
 from flask import Flask, render_template, request
 
 # ВАЖНО: папка templates лежит уровнем выше /api
@@ -389,16 +390,14 @@ SECTIONS = [
 # Настройки ИИ (Gemini)
 # =========================
 
-# !!! ВСТАВЬ СВОЙ РЕАЛЬНЫЙ КЛЮЧ СЮДА !!!
 GEMINI_API_KEY = "AIzaSyA9q6c-CMizuzEbNBC-5cO35VAXEJ4N6AE"
-GEMINI_MODEL = "gemini-2.5-flash"   # при необходимости поменяй на доступную модель
+GEMINI_MODEL = "gemini-2.5-flash"   # или другая доступная модель
 
 # =========================
 # Вспомогательные функции
 # =========================
 
 def format_rub(value):
-    """Форматирование числа с разделителями тысяч и 'руб.'."""
     try:
         value = float(value)
     except (TypeError, ValueError):
@@ -411,7 +410,6 @@ app.jinja_env.filters["rub"] = format_rub
 
 
 def build_gemini_prompt(project_description: str) -> str:
-    """Формируем промпт для ИИ, с жёстко заданными вариантами значений."""
     object_types_str = ", ".join(f'"{x}"' for x in OBJECT_TYPE_COEFFS.keys())
     stages_str = ", ".join(f'"{x}"' for x in STAGE_COEFFS.keys())
     urgencies_str = ", ".join(f'"{x}"' for x in URGENCY_COEFFS.keys())
@@ -478,10 +476,6 @@ automation: {automation_str}
 
 
 def parse_gemini_json(text: str):
-    """
-    Пытаемся вытащить JSON-объект из текста ответа модели.
-    Игнорируем возможные префиксы/суффиксы, ```json и т.п.
-    """
     start = text.find("{")
     end = text.rfind("}")
     if start == -1 or end == -1 or end <= start:
@@ -495,7 +489,6 @@ def parse_gemini_json(text: str):
 
 
 def call_gemini_for_suggestions(project_description: str):
-    """Запрашиваем у Gemini рекомендации по заполнению формы."""
     if not GEMINI_API_KEY or "ВСТАВЬ_СЮДА" in GEMINI_API_KEY:
         raise RuntimeError("API-ключ Gemini не задан в коде (константа GEMINI_API_KEY).")
 
@@ -513,26 +506,29 @@ def call_gemini_for_suggestions(project_description: str):
         ]
     }
 
-    resp = requests.post(
-        url,
-        headers=headers,
-        params={"key": GEMINI_API_KEY},
-        json=payload,
-        timeout=30,
-    )
-    resp.raise_for_status()
+    try:
+        resp = requests.post(
+            url,
+            headers=headers,
+            params={"key": GEMINI_API_KEY},
+            json=payload,
+            timeout=60,        # увеличенный таймаут
+        )
+        resp.raise_for_status()
+    except Timeout:
+        raise RuntimeError("Сервер Gemini не ответил вовремя. Попробуйте ещё раз через минуту.")
+    except RequestException as e:
+        raise RuntimeError(f"Ошибка при обращении к Gemini: {e}")
+
     data = resp.json()
 
-    # вытаскиваем текст из первого кандидата
     try:
         text = data["candidates"][0]["content"]["parts"][0]["text"]
     except Exception:
         raise RuntimeError("Не удалось прочитать ответ модели Gemini.")
 
-    # аккуратно вытащим JSON даже если есть ```json и префиксы
     raw_json = parse_gemini_json(text)
 
-    # нормализуем/проверяем значения
     suggestions = {
         "object_type": None,
         "stage": None,
@@ -592,34 +588,22 @@ def call_gemini_for_suggestions(project_description: str):
     return suggestions
 
 
-def calculate_section_cost(
-    section,
-    area_m2,
-    object_type,
-    stage,
-    urgency,
-    form,
-):
-    """Расчёт отдельного раздела. Возвращает dict или None, если раздел не включён."""
-
+def calculate_section_cost(section, area_m2, object_type, stage, urgency, form):
     key = section["key"]
     enabled = form.get(f"{key}_enabled") == "on"
     if not enabled:
         return None
 
-    # базовая трудоёмкость от площади и типа объекта
     if object_type not in OBJECT_TYPE_COEFFS:
         raise KeyError("Неизвестный тип объекта.")
     object_k = OBJECT_TYPE_COEFFS[object_type]
     t_base = area_m2 * section["base_hours_per_m2"] * object_k
 
-    # сложность
     complexity_choice = form.get(f"{key}_complexity") or "Базовая"
     if complexity_choice not in SECTION_COMPLEXITY_COEFFS:
         raise KeyError(f"Неизвестная сложность для раздела {section['title']}.")
     k_complexity = SECTION_COMPLEXITY_COEFFS[complexity_choice]
 
-    # детализация
     k_detail = 1.0
     detail_choice = None
     if section.get("uses_detail"):
@@ -630,7 +614,6 @@ def calculate_section_cost(
             raise KeyError(f"Неизвестный уровень детализации для раздела {section['title']}.")
         k_detail = DETAIL_LEVEL_COEFFS[detail_choice]
 
-    # автоматика
     k_automation = 1.0
     automation_choice = None
     if section.get("uses_automation"):
@@ -641,7 +624,6 @@ def calculate_section_cost(
             raise KeyError(f"Неизвестный уровень автоматики для раздела {section['title']}.")
         k_automation = AUTOMATION_LEVEL_COEFFS[automation_choice]
 
-    # стадия и срочность
     if stage not in STAGE_COEFFS:
         raise KeyError("Неизвестная стадия проекта.")
     if urgency not in URGENCY_COEFFS:
@@ -650,7 +632,6 @@ def calculate_section_cost(
     k_stage = STAGE_COEFFS[stage]
     k_urgency = URGENCY_COEFFS[urgency]
 
-    # общий коэффициент
     k_total = (
         k_complexity
         * k_detail
@@ -689,17 +670,13 @@ def calculate_section_cost(
     }
 
 
-# =========================
-# Flask-маршрут
-# =========================
-
 @app.route("/", methods=["GET", "POST"])
 def multi_section_calculator():
-    error_message = None           # ошибки расчёта стоимости
-    ai_error_message = None        # ошибки интеграции с ИИ
-    ai_suggestions = None          # рекомендации ИИ
-    section_results = []           # результаты расчёта по разделам
-    totals = None                  # итоговые суммы
+    error_message = None
+    ai_error_message = None
+    ai_suggestions = None
+    section_results = []
+    totals = None
 
     form_data = {
         "project_description": "",
@@ -712,14 +689,12 @@ def multi_section_calculator():
     if request.method == "POST":
         action = request.form.get("action") or "calculate"
 
-        # сохраняем введённые значения
         form_data["project_description"] = request.form.get("project_description", "").strip()
         form_data["area"] = request.form.get("area", "").strip()
         form_data["object_type"] = request.form.get("object_type")
         form_data["stage"] = request.form.get("stage")
         form_data["urgency"] = request.form.get("urgency")
 
-        # --- Режим: запрос рекомендаций ИИ ---
         if action == "suggest":
             if not form_data["project_description"]:
                 ai_error_message = "Опишите объект, чтобы получить рекомендации от ИИ."
@@ -728,8 +703,6 @@ def multi_section_calculator():
                     ai_suggestions = call_gemini_for_suggestions(form_data["project_description"])
                 except Exception as exc:
                     ai_error_message = f"Не удалось получить рекомендации ИИ: {exc}"
-
-        # --- Режим: расчёт стоимости ---
         elif action == "calculate":
             try:
                 area_str = (request.form.get("area") or "").replace(",", ".").strip()
@@ -750,7 +723,6 @@ def multi_section_calculator():
                 if not urgency:
                     raise ValueError("Не выбрана срочность выполнения.")
 
-                # расчёт по разделам
                 for section in SECTIONS:
                     result = calculate_section_cost(
                         section=section,
@@ -781,11 +753,9 @@ def multi_section_calculator():
                         and total_client_final == MIN_PRICE
                     ),
                 }
-
             except Exception as exc:
                 error_message = str(exc)
 
-    # группировка разделов по group для шаблона
     grouped_sections = {}
     for s in SECTIONS:
         grouped_sections.setdefault(s["group"], []).append(s)
