@@ -1,12 +1,17 @@
 # -*- coding: utf-8 -*-
 import json
 import math
+import time
+import logging
 import requests
 from requests.exceptions import Timeout, RequestException
 from flask import Flask, render_template, request
 
 # ВАЖНО: папка templates лежит уровнем выше /api
 app = Flask(__name__, template_folder="../templates")
+
+# Настройка логгера (все сообщения уровня INFO и выше попадут в логи Vercel)
+app.logger.setLevel(logging.INFO)
 
 # =========================
 # Финансовые константы
@@ -492,6 +497,12 @@ def call_gemini_for_suggestions(project_description: str):
     if not GEMINI_API_KEY or "ВСТАВЬ_СЮДА" in GEMINI_API_KEY:
         raise RuntimeError("API-ключ Gemini не задан в коде (константа GEMINI_API_KEY).")
 
+    app.logger.info(
+        "AI: start suggestions, desc_len=%d, model=%s",
+        len(project_description or ""),
+        GEMINI_MODEL,
+    )
+
     prompt = build_gemini_prompt(project_description)
 
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
@@ -506,7 +517,9 @@ def call_gemini_for_suggestions(project_description: str):
         ]
     }
 
+    start_time = time.perf_counter()
     try:
+        app.logger.info("AI: sending request to Gemini...")
         resp = requests.post(
             url,
             headers=headers,
@@ -514,20 +527,29 @@ def call_gemini_for_suggestions(project_description: str):
             json=payload,
             timeout=60,        # увеличенный таймаут
         )
+        elapsed = time.perf_counter() - start_time
+        app.logger.info("AI: HTTP response %s in %.2fs", resp.status_code, elapsed)
         resp.raise_for_status()
     except Timeout:
+        elapsed = time.perf_counter() - start_time
+        app.logger.warning("AI: Timeout after %.2fs", elapsed)
         raise RuntimeError("Сервер Gemini не ответил вовремя. Попробуйте ещё раз через минуту.")
     except RequestException as e:
+        elapsed = time.perf_counter() - start_time
+        app.logger.error("AI: RequestException after %.2fs: %s", elapsed, e)
         raise RuntimeError(f"Ошибка при обращении к Gemini: {e}")
 
     data = resp.json()
 
     try:
         text = data["candidates"][0]["content"]["parts"][0]["text"]
+        app.logger.info("AI: got text response, length=%d", len(text or ""))
     except Exception:
+        app.logger.error("AI: failed to read text from Gemini response")
         raise RuntimeError("Не удалось прочитать ответ модели Gemini.")
 
     raw_json = parse_gemini_json(text)
+    app.logger.info("AI: JSON parsed successfully")
 
     suggestions = {
         "object_type": None,
@@ -584,6 +606,14 @@ def call_gemini_for_suggestions(project_description: str):
             "title": s["title"],
             "group": s["group"],
         }
+
+    app.logger.info(
+        "AI: suggestions ready: object_type=%s, stage=%s, urgency=%s, sections=%d",
+        suggestions["object_type"],
+        suggestions["stage"],
+        suggestions["urgency"],
+        len(suggestions["sections"]),
+    )
 
     return suggestions
 
@@ -699,10 +729,12 @@ def multi_section_calculator():
             if not form_data["project_description"]:
                 ai_error_message = "Опишите объект, чтобы получить рекомендации от ИИ."
             else:
+                app.logger.info("AI: suggest button pressed")
                 try:
                     ai_suggestions = call_gemini_for_suggestions(form_data["project_description"])
                 except Exception as exc:
                     ai_error_message = f"Не удалось получить рекомендации ИИ: {exc}"
+                    app.logger.error("AI: error in suggestions: %s", exc)
         elif action == "calculate":
             try:
                 area_str = (request.form.get("area") or "").replace(",", ".").strip()
@@ -779,6 +811,7 @@ def multi_section_calculator():
         ai_error_message=ai_error_message,
         ai_suggestions=ai_suggestions,
         form_data=form_data,
+        version="v0.3",   # пробросим версию в шаблон
     )
 
 
